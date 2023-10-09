@@ -106,6 +106,7 @@ func (tree *Tree) insert(key string, v []byte) bool {
 }
 
 // 设置key值并且返回旧值
+// 设置新的key值不用在外部函数search
 func (tree *Tree) Set(key string, v []byte) (oldvalue kv.Value, hasold bool) {
 	if tree == nil {
 		log.Fatal("The tree is nil")
@@ -114,7 +115,9 @@ func (tree *Tree) Set(key string, v []byte) (oldvalue kv.Value, hasold bool) {
 	node, res := tree.Search(key)
 	var oldkv kv.Value
 	var flag bool
+	//数据不存在分两种情况：内存中标记为删除；内存中确实没有数据
 	if node == nil {
+		//此时的数据已经被标记为删除，替换数据就好
 		if res == kv.Deleted {
 			oldkv = *node.Kv.Copy()
 			flag = true
@@ -122,11 +125,13 @@ func (tree *Tree) Set(key string, v []byte) (oldvalue kv.Value, hasold bool) {
 			node.Kv.Value = v
 			node.Kv.Delete = false
 		} else if res == kv.None {
+			//内存表中并没有此数据，插入新数据即可
 			oldkv = kv.Value{}
 			flag = false
 			tree.insert(key, v)
 		}
 	} else {
+		//数据存在于内存中
 		oldkv = *node.Kv.Copy()
 		flag = true
 		node.Kv.Key = key
@@ -136,63 +141,36 @@ func (tree *Tree) Set(key string, v []byte) (oldvalue kv.Value, hasold bool) {
 }
 
 // 删除key并且返回旧值
+// 在调用删除函数之前不用在外部函数search
 func (tree *Tree) Delete(key string) (oldvalue kv.Value, hasold bool) {
-	tree.rwlock.Lock()
-	defer tree.rwlock.Unlock()
-
 	if tree == nil {
 		log.Fatal("The tree is nil")
 	}
 
-	newNode := &treeNode{
-		Kv: kv.Value{
-			Key:    key,
-			Value:  nil,
-			Delete: true,
-		},
-	}
-
-	current := tree.root
-	if current == nil {
-		tree.root = newNode
-		return kv.Value{}, false
-	}
-
-	for current != nil {
-		//找到了对应的key
-		if key == current.Kv.Key {
-			//存在且未被删除
-			if current.Kv.Delete == false {
-				oldvalue := current.Kv.Copy()
-				current.Kv.Value = nil
-				current.Kv.Delete = true
-				tree.count--
-				return *oldvalue, true
-			} else {
-				//已经标记过删除了
-				return kv.Value{}, false
-			}
+	node, res := tree.Search(key)
+	var oldkv kv.Value
+	var flag bool
+	if node == nil {
+		//数据不存在分为两种情况：内存中标记为删除；内存中确实没有数据
+		if res == kv.Deleted {
+			//此时的数据已经被标记为删除了
+			oldkv = *node.Kv.Copy()
+			flag = true
+		} else if res == kv.None {
+			//内存中确实没有数据
+			oldkv = kv.Value{}
+			flag = false
 		}
-
-		if key < current.Kv.Key {
-			//不存在key的话，增加一个删除标记
-			if current.Left == nil {
-				current.Left = newNode
-				tree.count++
-			}
-			current = current.Left
-		} else if key > current.Kv.Key {
-			if current.Right == nil {
-				current.Right = newNode
-				tree.count++
-			}
-		}
+	} else {
+		//数据存在于内存中
+		oldkv = *node.Kv.Copy()
+		flag = true
+		node.Kv.Delete = true
 	}
-	log.Fatalf("The tree fail to delete key, key: %s", key)
-	return kv.Value{}, false
+	return oldkv, flag
 }
 
-// 遍历获取树中的所有元素
+// 遍历获取此memtable中的所有元素
 func (tree *Tree) GetValue() []kv.Value {
 	tree.rwlock.RLock()
 	defer tree.rwlock.RUnlock()

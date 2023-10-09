@@ -39,6 +39,8 @@ func TestSortedTree(t *testing.T) {
 	values := tree.GetValue()
 	for _, v := range values {
 		fmt.Printf("Key: %s, Value: %s\n", v.Key, v.Value)
+		//打印此元素的删除状态
+		fmt.Println(v.Delete)
 	}
 
 	// 获取元素数量
