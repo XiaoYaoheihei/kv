@@ -70,6 +70,14 @@ func (w *Wal) LoadtoMem() *memtable.Tree {
 		log.Println("failed to seek the wal.log")
 		panic(err)
 	}
+	//将文件指针移动到最后，方便之后操作
+	defer func(f *os.File, offset int64, whence int) {
+		_, err := f.Seek(offset, whence)
+		if err != nil {
+			log.Println("Failed to seek the wal.log")
+			panic(err)
+		}
+	}(w.file, size-1, 0)
 
 	//首先将文件内容全部读取到字节切片中
 	data := make([]byte, size)
