@@ -123,3 +123,27 @@ func (w *Wal) LoadtoMem() *memtable.Tree {
 	}
 	return tree
 }
+
+func (w *Wal) Reset() {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	log.Println("Resetting the wal.log file")
+	err := w.file.Close()
+	if err != nil {
+		log.Println("Close the wal file fd fail")
+		panic(err)
+	}
+	w.file = nil
+	err = os.Remove(w.pathname)
+	if err != nil {
+		log.Println("Delete wal file from disk fail")
+		panic(err)
+	}
+	f, err := os.OpenFile(w.pathname, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Println("Failed to creat new wal file")
+		panic(err)
+	}
+	w.file = f
+}
