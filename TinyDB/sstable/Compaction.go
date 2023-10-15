@@ -60,11 +60,14 @@ func (t *TableTree) compactionToNextLevel(level int) {
 			log.Println(" error open file ", currentTable.filepath)
 			panic(err)
 		}
+		//这里明显还可以优化，这里设计的每一次读取都是从disk中读取
+		//应该先从cache中读取，然后才从磁盘中读取
 		if _, err := currentTable.file.Read(dataBlock); err != nil {
 			log.Println(" error read file ", currentTable.filepath)
 			panic(err)
 		}
 
+		//现在默认索引区的数据和数据区的数据是一致的
 		//开始读取每一个元素
 		for k, pos := range currentTable.sparseIndex {
 			if pos.Deleted {
