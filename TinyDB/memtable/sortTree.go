@@ -128,7 +128,10 @@ func (tree *Tree) Set(key string, v []byte) (oldvalue kv.Value, hasold bool) {
 			//内存表中并没有此数据，插入新数据即可
 			oldkv = kv.Value{}
 			flag = false
-			tree.insert(key, v)
+			suc := tree.insert(key, v)
+			if suc {
+				log.Println("set success")
+			}
 		}
 	} else {
 		//数据存在于内存中
@@ -196,4 +199,18 @@ func (tree *Tree) GetValue() []kv.Value {
 		}
 	}
 	return values
+}
+
+// 置换当前的BST,BST的数量大于配置中的数量
+func (tree *Tree) Swap() *Tree {
+	tree.rwlock.Lock()
+	defer tree.rwlock.Unlock()
+
+	newTree := &Tree{}
+	newTree.Init()
+	newTree.root = tree.root
+	newTree.count = tree.count
+	tree.root = nil
+	tree.count = 0
+	return newTree
 }

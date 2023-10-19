@@ -34,6 +34,10 @@ func TestSortedTree(t *testing.T) {
 	if deleted {
 		fmt.Printf("30 deleted. Old Value: %s\n", oldValue.Value)
 	}
+	oldValue, deleted = tree.Delete("55")
+	if !deleted {
+		fmt.Println("not find 55 in BST")
+	}
 
 	// 获取所有键值对
 	values := tree.GetValue()
@@ -42,6 +46,7 @@ func TestSortedTree(t *testing.T) {
 		//打印此元素的删除状态
 		fmt.Println(v.Delete)
 	}
+	fmt.Println(values)
 
 	// 获取元素数量
 	count := tree.Getcount()
