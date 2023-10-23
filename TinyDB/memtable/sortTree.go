@@ -63,7 +63,7 @@ func (tree *Tree) Search(key string) (*treeNode, int) {
 	return nil, kv.None
 }
 
-func (tree *Tree) insert(key string, v []byte) bool {
+func (tree *Tree) insert(key string, v []byte, flag int) bool {
 	tree.rwlock.Lock()
 	defer tree.rwlock.Unlock()
 
@@ -71,6 +71,10 @@ func (tree *Tree) insert(key string, v []byte) bool {
 	tmp.Kv.Key = key
 	tmp.Kv.Value = v
 	tmp.Kv.Delete = false
+	//保证删除的时候也可以插入
+	if flag == 1 {
+		tmp.Kv.Delete = true
+	}
 	tmp.Left = nil
 	tmp.Right = nil
 
@@ -128,7 +132,8 @@ func (tree *Tree) Set(key string, v []byte) (oldvalue kv.Value, hasold bool) {
 			//内存表中并没有此数据，插入新数据即可
 			oldkv = kv.Value{}
 			flag = false
-			suc := tree.insert(key, v)
+			//这里的0表示插入的是普通的数据
+			suc := tree.insert(key, v, 0)
 			if suc {
 				log.Println("set success")
 			}
@@ -160,15 +165,23 @@ func (tree *Tree) Delete(key string) (oldvalue kv.Value, hasold bool) {
 			oldkv = *node.Kv.Copy()
 			flag = true
 		} else if res == kv.None {
-			//内存中确实没有数据
+			//内存中没有数据
 			oldkv = kv.Value{}
 			flag = false
+			flag := tree.insert(key, nil, 1)
+			if flag == true {
+				fmt.Println("Delete insert success")
+			} else {
+				fmt.Println("Delete insert failed")
+			}
 		}
 	} else {
 		//数据存在于内存中
 		oldkv = *node.Kv.Copy()
 		flag = true
 		node.Kv.Delete = true
+		node.Kv.Value = nil
+		tree.count--
 	}
 	return oldkv, flag
 }
