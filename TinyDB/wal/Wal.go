@@ -27,7 +27,7 @@ func (w *Wal) Init(dir string) *memtable.Tree {
 		log.Println("the wal.log cannot be create")
 		panic(err)
 	}
-
+	log.Println("wal.log had been create")
 	w.file = f
 	w.pathname = walpath
 	w.lock = &sync.Mutex{}
@@ -88,6 +88,7 @@ func (w *Wal) LoadtoMem() *memtable.Tree {
 		panic(err)
 	}
 
+	//开始根据文件中的具体元素构造整颗树
 	//每一个元素的字节数量
 	datelen := int64(0)
 	//当前索引
