@@ -20,7 +20,7 @@ func (table *SSTable) GetDbsize() int64 {
 // 将数据写入到文件当中
 func writeDataToFile(filepath string, dataArea []byte, indexArea []byte, meta Meta) {
 	//此时以只写的方式打开相应文件
-	file, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE, 0666)
+	file, err := os.OpenFile(filepath, os.O_RDWR|os.O_CREATE, 0666)
 	defer file.Close()
 
 	if err != nil {
@@ -59,6 +59,9 @@ func writeDataToFile(filepath string, dataArea []byte, indexArea []byte, meta Me
 	}
 	//上述所有的write都只是把数据暂时写入到文件缓冲区中，并没有立即刷盘
 	//sync函数将文件缓冲区中的数据强制刷新/写入到磁盘中
+	//每一次将sstable中的内容写入disk中的时候，都立即刷盘
+	//如果此时并发量很大，有很多数据产生，会有大量的sstable对象生成，
+	//这样立即刷盘的操作会不会造成性能问题？？？这个也是一个需要考虑的问题
 	err = file.Sync()
 	if err != nil {
 		log.Fatal(" error write file from file's buffer,", err)
