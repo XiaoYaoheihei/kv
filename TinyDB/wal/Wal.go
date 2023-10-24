@@ -14,14 +14,19 @@ import (
 
 type Wal struct {
 	file     *os.File
-	pathname string
+	Pathname string
 	lock     *sync.Mutex
 }
 
 // 日志的初始化
-func (w *Wal) Init(dir string) *memtable.Tree {
+func (w *Wal) Init(dir string, index int) *memtable.Tree {
 	log.Println("loading wal.log...")
-	walpath := path.Join(dir, "wal.log")
+	var walpath string
+	if index == 1 {
+		walpath = path.Join(dir, "wal1.log")
+	} else {
+		walpath = path.Join(dir, "wal2.log")
+	}
 	f, err := os.OpenFile(walpath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Println("the wal.log cannot be create")
@@ -29,7 +34,7 @@ func (w *Wal) Init(dir string) *memtable.Tree {
 	}
 	log.Println("wal.log had been create")
 	w.file = f
-	w.pathname = walpath
+	w.Pathname = walpath
 	w.lock = &sync.Mutex{}
 	return w.LoadtoMem()
 }
@@ -56,7 +61,7 @@ func (w *Wal) LoadtoMem() *memtable.Tree {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	info, _ := os.Stat(w.pathname)
+	info, _ := os.Stat(w.Pathname)
 	size := info.Size()
 	tree := &memtable.Tree{}
 	tree.Init()
@@ -129,22 +134,10 @@ func (w *Wal) Reset() {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	log.Println("Resetting the wal.log file")
-	err := w.file.Close()
+	log.Println("Clear the wal.log file")
+	//将文件内容重新置0
+	err := w.file.Truncate(0)
 	if err != nil {
-		log.Println("Close the wal file fd fail")
-		panic(err)
+		log.Println("Error to clear the wal.log file", w.Pathname)
 	}
-	w.file = nil
-	err = os.Remove(w.pathname)
-	if err != nil {
-		log.Println("Delete wal file from disk fail")
-		panic(err)
-	}
-	f, err := os.OpenFile(w.pathname, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Println("Failed to creat new wal file")
-		panic(err)
-	}
-	w.file = f
 }
