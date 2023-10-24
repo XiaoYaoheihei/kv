@@ -74,7 +74,8 @@ func (t *TableTree) creatTable(value []kv.Value, level int) *SSTable {
 		indexStart: int64(0 + len(dataArea)),
 		indexLen:   int64(len(indexArea)),
 	}
-	//生成sstable
+	//生成sstable，此时的sstable对象中存储了索引区的数据
+	//也就保证了所有的索引区数据全部存储在内存中存储
 	table := &SSTable{
 		tableMeta:   meta,
 		sparseIndex: pos,
@@ -93,7 +94,7 @@ func (t *TableTree) creatTable(value []kv.Value, level int) *SSTable {
 	writeDataToFile(filepath, dataArea, indexArea, meta)
 
 	//数据写入之后，将所有的sstable文件都打开,方便后续对文件操作
-	file, err := os.OpenFile(table.filepath, os.O_RDONLY, 0666)
+	file, err := os.OpenFile(table.filepath, os.O_RDWR, 0666)
 	if err != nil {
 		log.Println(" error open file ", table.filepath)
 		panic(err)
@@ -122,6 +123,7 @@ func (t *TableTree) insert(table *SSTable, level int) int {
 			if node.next == nil {
 				newNode.index = node.index + 1
 				node.next = newNode
+				break
 			} else {
 				node = node.next
 			}
