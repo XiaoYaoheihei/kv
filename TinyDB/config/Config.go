@@ -11,7 +11,7 @@ type Config struct {
 	Level0Size int
 	//每层中sstable数量的阈值
 	PerSize int
-	//memtable中kv的最大值，超出阈值会被保存到sstable中
+	//memtable中kv的最大数量，超出阈值会被保存到sstable中
 	Threshold int
 	//做一次检查工作的时间间隔
 	CheckInterval int
