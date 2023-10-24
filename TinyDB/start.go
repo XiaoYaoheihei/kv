@@ -3,9 +3,9 @@ package tinydb
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 	"tinydb/config"
-	"tinydb/memtable"
 	"tinydb/sstable"
 	"tinydb/wal"
 )
@@ -16,6 +16,7 @@ func Start(con config.Config) {
 		return
 	}
 	//初始化配置
+	log.SetFlags(log.Lshortfile | log.Lmicroseconds | log.Ldate)
 	log.Println("Loading a Configuration File")
 	config.Init(con)
 	//初始化数据库
@@ -30,12 +31,16 @@ func Start(con config.Config) {
 	go Check()
 }
 
-// 初始化数据库,从磁盘文件中还原sstable, wal, memtable等等
+// 初始化数据库,从磁盘中根据wal文件还原memtable
+// 并根据当前的sstable构建tableTree
 func initDatabase(dir string) {
 	database = &Database{
-		MemoryTree: &memtable.Tree{},
-		TableTree:  &sstable.TableTree{},
-		Wal:        &wal.Wal{},
+		MemoryTree:   nil,
+		ImmutableMem: nil,
+		TableTree:    &sstable.TableTree{},
+		Wal:          nil,
+		Wal1:         &wal.Wal{},
+		Wal2:         &wal.Wal{},
 	}
 
 	//从磁盘中开始恢复数据
@@ -48,13 +53,18 @@ func initDatabase(dir string) {
 			panic(err)
 		}
 	}
+	database.Wal = database.Wal1
 	//从WAL文件中生成BST树
-	memTree := database.Wal.Init(dir)
-	database.MemoryTree = memTree
+	database.MemoryTree = database.Wal1.Init(dir, 1)
+	//初始化辅助日志
+	database.Wal2.Init(dir, 2)
+	log.Println("All log has been created")
 	log.Println("Loading databases...")
 	database.TableTree.Init(dir)
 }
 
+// 定期检查memtable中的数据是否超出阈值
+// 如果超出阈值，将memtable转化为immutable
 func Check() {
 	con := config.GetConfig()
 	ticker := time.Tick(time.Duration(con.CheckInterval) * time.Second)
@@ -70,14 +80,21 @@ func Check() {
 func checkMem() {
 	con := config.GetConfig()
 	count := database.MemoryTree.Getcount()
-	if count < con.PerSize {
+	if count < con.Threshold {
 		return
 	}
-	//内存中sstable的数量多于预期值
+	//内存中memtable的节点数量多于预期值
 	log.Println("Compressing memory")
-	tmpTree := database.MemoryTree.Swap()
-	//将数据存入到sstable中
-	database.TableTree.CreateNewTable(tmpTree.GetValue())
-	//对当前日志重新设置
-	database.Wal.Reset()
+	database.ImmutableMem = database.MemoryTree.Swap()
+	//每次都交换wal文件指针
+	if filepath.Base(database.Wal.Pathname) == "wal1.log" {
+		database.Wal = database.Wal2
+		database.Wal1.Reset()
+	} else {
+		database.Wal = database.Wal1
+		database.Wal2.Reset()
+	}
+	log.Println("Resetting the wal.log file success")
+	//将immutableMem中的数据存入到sstable中
+	database.TableTree.CreateNewTable(database.ImmutableMem.GetValue())
 }

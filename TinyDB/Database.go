@@ -10,12 +10,17 @@ import (
 )
 
 type Database struct {
-	//当前内存中唯一存在的内存表
+	//当前内存中可读可写的内存表
 	MemoryTree *memtable.Tree
+	//不可继续写的内存表,只能读
+	ImmutableMem *memtable.Tree
 	//sstable
 	TableTree *sstable.TableTree
 	//日志文件句柄
 	Wal *wal.Wal
+	//两个日志文件，保证平稳过渡
+	Wal1 *wal.Wal
+	Wal2 *wal.Wal
 }
 
 // 全局唯一的数据库
@@ -25,11 +30,17 @@ var database *Database
 // get获取元素
 func Get[T any](key string) (T, bool) {
 	log.Print("Get: ", key)
-	//首先在唯一的内存表中查询memtable中有无数据
+	//首先在可读可写的内存表中查询memtable中有无数据
 	value, res := database.MemoryTree.Search(key)
 	if res == kv.Success {
 		return getInstance[T](value.Kv.Value)
 	}
+	//从immutableMem中寻找对应数据
+	value, res = database.ImmutableMem.Search(key)
+	if res == kv.Success {
+		return getInstance[T](value.Kv.Value)
+	}
+	//两个内存表中都没有找到相应的数据
 	//开始从其余的sstable文件中查找
 	log.Print("Get from sstable file")
 
