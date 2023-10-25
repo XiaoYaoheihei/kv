@@ -1,9 +1,5 @@
 package fliter
 
-import (
-	"strconv"
-)
-
 type BloomFliter struct {
 	//m是bitmap长度
 	//n是已经设置的元素个数
@@ -54,17 +50,23 @@ func (b *BloomFliter) getKEncrypted(val string) []int32 {
 	//所有的bit位
 	encrypteds := make([]int32, 0, b.k)
 	origin := val
-	for i := 0; int32(i) < b.k; i++ {
-		encrypted := b.encryptor.Encrypt(origin)
-		//获取hash值之后还需要根据长度进行取模
+	//拟采用双哈希模拟多哈希的方式
+	s1 := 0xe2c6928a
+	s2 := 0xbaea8a8f
+	h1 := b.encryptor.Encrypt(origin, s1)
+	h2 := b.encryptor.Encrypt(origin, s2)
+	var i int32
+	for i = 0; i < b.k; i++ {
+		encrypted := h1 + i*h2
+		//获取hash值之后还需要根据长度进行取模确定具体的位置
 		encrypted = encrypted % b.m
-		encrypteds = append(encrypteds, encrypted%b.m)
+		encrypteds = append(encrypteds, encrypted)
 		if int32(i) == b.k-1 {
 			break
 		}
 		//首次映射时以元素val作为哈希函数的输入获取哈希值
 		//接下来的每一次都通过添加后缀的方式作为输入获取新的hash值
-		origin = origin + strconv.Itoa(int(encrypted))
+		// origin = origin + strconv.Itoa(int(encrypted))
 	}
 	return encrypteds
 }
