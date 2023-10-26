@@ -29,7 +29,7 @@ func (t *TableTree) Init(dir string) {
 
 	con := config.GetConfig()
 	levelSize = make([]int, 10)
-	levelSize[0] = con.Level0Size
+	levelSize[0] = con.Level0Size * 1024 * 1024
 	//初始化每一层的文件大小
 	for i := 1; i < 10; i++ {
 		levelSize[i] = levelSize[i-1] * 10
@@ -41,6 +41,7 @@ func (t *TableTree) Init(dir string) {
 	dirname, err := os.OpenFile(dir, os.O_RDONLY, 0666)
 	if err != nil {
 		log.Println("Open dir fail")
+		panic(err)
 	}
 	defer dirname.Close()
 	//读取目录中的所有db文件
@@ -48,7 +49,8 @@ func (t *TableTree) Init(dir string) {
 	//n<=0，Readdir函数返回目录中剩余所有文件对象的FileInfo构成的切片
 	infos, err := dirname.Readdir(-1)
 	if err != nil {
-		log.Println(err)
+		log.Println("Failed to read the database file")
+		panic(err)
 	}
 	//忽略当前元素的值，所以不写
 	for i := range infos {
@@ -69,12 +71,13 @@ func (t *TableTree) loadToTree(path string) {
 		end := time.Since(start)
 		log.Println("Loading the ", path, ",Consumption of time : ", end)
 	}()
-
+	//Base函数返回路径的最后一个元素，提取元素的时候会去掉末尾的'/'
 	level, index, err := getLevel(filepath.Base(path))
 	if err != nil {
 		log.Println("Loading the ", path, "error")
 	}
 
+	log.Println("start to load the ", path, "to TableTree")
 	table := &SSTable{}
 	table.Init(path)
 	newNode := &tableNode{
@@ -105,8 +108,8 @@ func (t *TableTree) loadToTree(path string) {
 // 加载文件句柄
 func (table *SSTable) loadFd() {
 	if table.file == nil {
-		//以只读的形式打开文件
-		f, err := os.OpenFile(table.filepath, os.O_RDONLY, 0666)
+		//以读写的形式打开文件
+		f, err := os.OpenFile(table.filepath, os.O_RDWR, 0666)
 		if err != nil {
 			log.Println(" error open file ", table.filepath)
 			panic(err)
