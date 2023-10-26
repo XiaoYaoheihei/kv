@@ -1,6 +1,7 @@
 package fliter_test
 
 import (
+	"fmt"
 	"testing"
 	"tinydb/fliter"
 )
@@ -16,6 +17,8 @@ func TestBloomFilter(t *testing.T) {
 	exists := bloomFilter.Exist(testElement)
 	if exists {
 		t.Errorf("Element '%s' should not exist in the BloomFilter initially", testElement)
+	} else {
+		fmt.Println("exist")
 	}
 
 	// 添加元素到 BloomFilter
@@ -25,6 +28,8 @@ func TestBloomFilter(t *testing.T) {
 	exists = bloomFilter.Exist(testElement)
 	if !exists {
 		t.Errorf("Element '%s' should exist in the BloomFilter after being set", testElement)
+	} else {
+		fmt.Println("not exist")
 	}
 
 	// 测试不存在的元素

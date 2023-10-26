@@ -6,7 +6,7 @@ type BloomFliter struct {
 	//k是设置的哈希函数
 	m, n, k int32
 	//每一个元素都是32个bit位
-	bitmap []int
+	bitmap []int32
 	//哈希函数
 	encryptor *Encryptor
 }
@@ -15,7 +15,7 @@ func NewBloomFliter(m, k int32, hashFunc *Encryptor) *BloomFliter {
 	return &BloomFliter{
 		m:         m,
 		k:         k,
-		bitmap:    make([]int, m/32+1),
+		bitmap:    make([]int32, m/32+1),
 		encryptor: hashFunc,
 	}
 }
@@ -46,22 +46,23 @@ func (b *BloomFliter) Exist(val string) bool {
 }
 
 // 获取一个元素val对应的k个bit位的偏移量offset
-func (b *BloomFliter) getKEncrypted(val string) []int32 {
+func (b *BloomFliter) getKEncrypted(val string) []uint64 {
 	//所有的bit位
-	encrypteds := make([]int32, 0, b.k)
+	encrypteds := make([]uint64, 0, b.k)
 	origin := val
 	//拟采用双哈希模拟多哈希的方式
 	s1 := 0xe2c6928a
 	s2 := 0xbaea8a8f
 	h1 := b.encryptor.Encrypt(origin, s1)
 	h2 := b.encryptor.Encrypt(origin, s2)
-	var i int32
-	for i = 0; i < b.k; i++ {
+	var i uint64
+	size := uint64(b.k)
+	for i = 0; i < size; i++ {
 		encrypted := h1 + i*h2
-		//获取hash值之后还需要根据长度进行取模确定具体的位置
-		encrypted = encrypted % b.m
+		//获取hash值之后还需要根据位图长度进行取模确定具体的位置
+		encrypted = encrypted % uint64(b.m)
 		encrypteds = append(encrypteds, encrypted)
-		if int32(i) == b.k-1 {
+		if i == size-1 {
 			break
 		}
 		//首次映射时以元素val作为哈希函数的输入获取哈希值
