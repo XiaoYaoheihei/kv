@@ -1,6 +1,7 @@
 package sstable
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -29,6 +30,7 @@ func (t *TableTree) compaction() {
 			t.compactionToNextLevel(levelIndex)
 		}
 	}
+	fmt.Println("This peroid had completed compaction")
 }
 
 // 压缩当前层的文件到下一层
@@ -68,7 +70,7 @@ func (t *TableTree) compactionToNextLevel(level int) {
 		}
 
 		//现在默认索引区的数据和数据区的数据是一致的
-		//开始读取每一个元素
+		//根据索引区信息开始读取每一个元素
 		for k, pos := range currentTable.sparseIndex {
 			if pos.Deleted {
 				//该元素是待删除的,插入到二叉树中
@@ -91,17 +93,20 @@ func (t *TableTree) compactionToNextLevel(level int) {
 	newLevel := level + 1
 	//可以设置一个最大支持层数
 	//后续可以设计定期删除相应的数据
-	if newLevel > 10 {
-		newLevel = 10
+	if newLevel == 10 {
+		//如果合并的文件是最后一层的，直接将这一层原来的所有数据全部删除
+		//新构造这一层相应的文件
+		oldNode := t.levels[9]
+		t.clearLevel(oldNode)
+		t.creatTable(allValues, 9)
+		return
 	}
 	//开始创建新的sstable,并插入到相应的层
 	t.creatTable(allValues, newLevel)
 	//清理该level的所有文件
 	oldNode := t.levels[level]
-	if level < 10 {
-		t.levels[level] = nil
-		t.clearLevel(oldNode)
-	}
+	t.levels[level] = nil
+	t.clearLevel(oldNode)
 }
 
 // 清除压缩完之后的当前层
